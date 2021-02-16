@@ -345,6 +345,7 @@ func (db *DB) mmap(minsz int) error {
 	if err != nil {
 		return err
 	}
+	mmapSize.Set(float64(size))
 
 	// Dereference all mmap references before unmapping.
 	if db.rwtx != nil {
@@ -539,8 +540,10 @@ func (db *DB) close() error {
 // else the database will not reclaim old pages.
 func (db *DB) Begin(writable bool) (*Tx, error) {
 	if writable {
+		writableTxCount.Inc()
 		return db.beginRWTx()
 	}
+	readOnlyTxCount.Inc()
 	return db.beginTx()
 }
 
@@ -553,7 +556,10 @@ func (db *DB) beginTx() (*Tx, error) {
 	// Obtain a read-only lock on the mmap. When the mmap is remapped it will
 	// obtain a write lock so all transactions must finish before it can be
 	// remapped.
+	start := time.Now()
 	db.mmaplock.RLock()
+	duration := time.Now().Sub(start)
+	readWriteTxLockWaitTime.Observe(float64(duration.Milliseconds()))
 
 	// Exit if the database is not open yet.
 	if !db.opened {
@@ -590,7 +596,10 @@ func (db *DB) beginRWTx() (*Tx, error) {
 
 	// Obtain writer lock. This is released by the transaction when it closes.
 	// This enforces only one writer transaction at a time.
+	start := time.Now()
 	db.rwlock.Lock()
+	duration := time.Now().Sub(start)
+	readWriteTxLockWaitTime.Observe(float64(duration.Milliseconds()))
 
 	// Once we have the writer lock then we can lock the meta pages so that
 	// we can set up the transaction.
@@ -936,9 +945,13 @@ func (db *DB) allocate(txid txid, count int) (*page, error) {
 	p.id = db.rwtx.meta.pgid
 	var minsz = int((p.id+pgid(count))+1) * db.pageSize
 	if minsz >= db.datasz {
+		numMmapResizes.Inc()
+		start := time.Now()
 		if err := db.mmap(minsz); err != nil {
 			return nil, fmt.Errorf("mmap allocate error: %s", err)
 		}
+		duration := time.Now().Sub(start)
+		mmapWaitTime.Observe(float64(duration.Milliseconds()))
 	}
 
 	// Move the page id high water mark.
