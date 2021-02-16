@@ -24,21 +24,21 @@ var (
 	})
 	readWriteTxLockWaitTime = promauto.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "read_write_tx_lock_time_milliseconds",
+			Name:    "bbolt_read_write_tx_lock_time_milliseconds",
 			Help:    "The number of time waiting for the db read/write lock in milliseconds",
 			Buckets: []float64{100, 500, 1000, 2000, 4000, 10000},
 		},
 	)
 	readTxLockWaitTime = promauto.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "read_tx_lock_time_milliseconds",
+			Name:    "bbolt_read_tx_lock_time_milliseconds",
 			Help:    "The number of time waiting for the db read lock in milliseconds",
 			Buckets: []float64{100, 500, 1000, 2000, 4000, 10000},
 		},
 	)
 	mmapWaitTime = promauto.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "mmap_time_milliseconds",
+			Name:    "bbolt_mmap_time_milliseconds",
 			Help:    "The number of time waiting for mmap to complete in milliseconds",
 			Buckets: []float64{100, 500, 1000, 2000, 4000, 10000, 20000},
 		},
